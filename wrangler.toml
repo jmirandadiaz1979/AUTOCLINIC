@@ -1,0 +1,14 @@
+name = "autotecnico-pro"
+
+[env.production]
+routes = [
+  { pattern = "autoclinic-7x3.pages.dev/*", zone_name = "pages.dev" }
+]
+
+[[migrations]]
+tag = "v1"
+new = true
+
+[build]
+command = ""
+cwd = "."
