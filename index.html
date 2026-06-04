@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoTécnico Pro — Diagnóstico Automotriz</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Bricolage+Grotesque:wght@400;600;700&display=swap" rel="stylesheet">
+
+<!-- marked.js EMBEBIDO INLINE — sin dependencia CDN -->
+<script>
+(function(){
+'use strict';
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function inline(t){
+  return t
+    .replace(/\*\*\*(.+?)\*\*\*/g,'<strong><em>$1</em></strong>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/`([^`\n]+)`/g,'<code>$1</code>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank">$1</a>')
+    .replace(/~~(.+?)~~/g,'<del>$1</del>');
+}
+window.marked={parse:function(src){
+  if(!src||typeof src!=='string')return '';
+  var out='',lines=src.split('\n'),i=0;
+  var inCode=false,codeLang='',codeLines=[];
+  var inTable=false,tableLines=[];
+  var ulBuf=[],olBuf=[];
+  function flushUL(){if(ulBuf.length){out+='<ul>'+ulBuf.map(function(x){return '<li>'+inline(x)+'</li>';}).join('')+'</ul>';ulBuf=[];}}
+  function flushOL(){if(olBuf.length){out+='<ol>'+olBuf.map(function(x){return '<li>'+inline(x)+'</li>';}).join('')+'</ol>';olBuf=[];}}
+  function flushLists(){flushUL();flushOL();}
+  function flushTable(){
+    if(!tableLines.length)return;
+    var hdrs=tableLines[0].split('|').map(function(s){return s.trim();}).filter(Boolean);
+    var rows=tableLines.slice(2);
+    var h='<table><thead><tr>'+hdrs.map(function(x){return '<th>'+inline(x)+'</th>';}).join('')+'</tr></thead><tbody>';
+    rows.forEach(function(r){
+      var cells=r.split('|').map(function(s){return s.trim();}).filter(Boolean);
+      h+='<tr>'+cells.map(function(c){return '<td>'+inline(c)+'</td>';}).join('')+'</tr>';
+    });
+    out+=h+'</tbody></table>';
+    tableLines=[];inTable=false;
+  }
+  while(i<lines.length){
+    var line=lines[i];
+    // fenced code
+    if(/^```/.test(line)){
+      if(!inCode){flushLists();flushTable();codeLang=line.replace(/^```/,'').trim();codeLines=[];inCode=true;i++;continue;}
+      else{out+='<pre><code'+(codeLang?' class="language-'+esc(codeLang)+'"':'')+'>'+esc(codeLines.join('\n'))+'</code></pre>';inCode=false;codeLang='';codeLines=[];i++;continue;}
+    }
+    if(inCode){codeLines.push(line);i++;continue;}
+    // table
+    if(/^\s*\|/.test(line)){if(!inTable){flushLists();inTable=true;}tableLines.push(line);i++;continue;}
+    else if(inTable){flushTable();}
+    // SVG placeholder passthrough
+    if(/^\[\[SVG_\d+\]\]\s*$/.test(line.trim())){flushLists();out+=line.trim();i++;continue;}
+    // heading
+    var hm=line.match(/^(#{1,6})\s+(.+)/);
+    if(hm){flushLists();out+='<h'+hm[1].length+'>'+inline(hm[2])+'</h'+hm[1].length+'>';i++;continue;}
+    // hr
+    if(/^[-*_]{3,}\s*$/.test(line)){flushLists();out+='<hr>';i++;continue;}
+    // blockquote
+    if(/^>\s*/.test(line)){flushLists();out+='<blockquote><p>'+inline(line.replace(/^>\s*/,''))+'</p></blockquote>';i++;continue;}
+    // ul
+    var ulm=line.match(/^[\*\-\+]\s+(.+)/);
+    if(ulm){flushOL();ulBuf.push(ulm[1]);i++;continue;}
+    // ol
+    var olm=line.match(/^\d+\.\s+(.+)/);
+    if(olm){flushUL();olBuf.push(olm[1]);i++;continue;}
+    // blank
+    if(/^\s*$/.test(line)){flushLists();i++;continue;}
+    // paragraph (collect until blank/special)
+    flushLists();
+    var para=line;
+    while(i+1<lines.length){
+      var nx=lines[i+1];
+      if(/^\s*$/.test(nx)||/^[#>]/.test(nx)||/^[\*\-\+]\s/.test(nx)||/^\d+\.\s/.test(nx)||/^```/.test(nx)||/^\s*\|/.test(nx)||/^\[\[SVG_/.test(nx)||/^[-*_]{3,}\s*$/.test(nx))break;
+      i++;para+='\n'+lines[i];
+    }
+    out+='<p>'+inline(para)+'</p>';
+    i++;
+  }
+  flushLists();flushTable();
+  return out;
+}};
+console.log('[marked] Cargado inline OK');
+})();
+</script>
+
+<style>
+  :root {
+    --bg:#0a0d12;--surface:#0f1319;--surface2:#14192a;--surface3:#1a223a;
+    --border:#1f2a45;--accent:#4d9fff;--accent2:#00e5cc;--accent3:#ff6b35;
+    --text:#e8ecf5;--text2:#9199b7;--text3:#5a6380;--danger:#ff4560;
+    --mono:'JetBrains Mono',monospace;--sans:'Bricolage Grotesque',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+  body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.7;overflow-x:hidden}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 100% 70% at 50% 0%,rgba(77,159,255,.08) 0%,transparent 60%),radial-gradient(ellipse 80% 50% at 100% 100%,rgba(0,229,204,.05) 0%,transparent 70%);pointer-events:none;z-index:0}
+  header{position:sticky;top:0;z-index:100;background:rgba(10,13,18,.9);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 24px}
+  .header-inner{max-width:1600px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:70px;gap:20px}
+  .logo{display:flex;align-items:center;gap:12px;flex-shrink:0}
+  .logo-icon{width:40px;height:40px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 16px rgba(77,159,255,.2)}
+  .logo-text{font-size:18px;font-weight:700;letter-spacing:-.8px;color:var(--text)}
+  .logo-text span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .mode-toggle-wrapper{display:flex;align-items:center;gap:8px;background:var(--surface3);border:1px solid var(--border);border-radius:50px;padding:5px 8px}
+  .mode-label{font-family:var(--mono);font-size:11px;color:var(--text3);padding:0 12px;white-space:nowrap;font-weight:600;text-transform:uppercase}
+  .mode-btn{padding:6px 16px;border-radius:50px;border:none;cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:700;transition:all .3s;background:transparent;color:var(--text3);white-space:nowrap}
+  .mode-btn.active{background:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(77,159,255,.3)}
+  .header-status{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--text3);padding:6px 14px;background:var(--surface2);border-radius:50px;border:1px solid var(--border)}
+  .status-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);transition:all .3s}
+  .status-dot.connected{background:var(--accent2);box-shadow:0 0 12px var(--accent2)}
+  .app{position:relative;z-index:1;max-width:1600px;margin:0 auto;padding:32px 24px;display:grid;grid-template-columns:340px 1fr;gap:28px;min-height:calc(100vh - 70px)}
+  .sidebar{display:flex;flex-direction:column;gap:20px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.6);transition:border-color .3s}
+  .card:hover{border-color:rgba(77,159,255,.3)}
+  .card-title{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--text3);margin-bottom:16px;display:flex;align-items:center;gap:10px}
+  .card-title::before{content:'';width:4px;height:14px;background:linear-gradient(180deg,var(--accent),var(--accent2));border-radius:2px}
+  label{display:block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.9px;color:var(--text2);margin-bottom:8px;text-transform:uppercase}
+  input[type="text"],input[type="password"],select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:11px 14px;color:var(--text);font-family:var(--mono);font-size:12px;transition:all .2s;appearance:none;outline:none}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(77,159,255,.1)}
+  .field{margin-bottom:16px}
+  .field-hint{font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:6px;line-height:1.5}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0}
+  .toggle{position:relative;width:40px;height:22px}
+  .toggle input{opacity:0;width:0;height:0}
+  .toggle-slider{position:absolute;inset:0;background:var(--surface3);border-radius:20px;cursor:pointer;transition:.3s;border:1px solid var(--border)}
+  .toggle-slider::before{content:'';position:absolute;height:16px;width:16px;left:2px;top:2px;background:var(--text3);border-radius:50%;transition:.3s}
+  .toggle input:checked+.toggle-slider{background:var(--accent);border-color:var(--accent)}
+  .toggle input:checked+.toggle-slider::before{transform:translateX(18px);background:#fff}
+  .tokens-row{display:flex;align-items:center;justify-content:space-between}
+  .tokens-val{font-family:var(--mono);font-size:12px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700}
+  input[type="range"]{-webkit-appearance:none;background:var(--surface3);border:1px solid var(--border);border-radius:4px;height:5px;padding:0;cursor:pointer;width:100%}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));cursor:pointer;box-shadow:0 2px 8px rgba(77,159,255,.3)}
+  .quick-grid{display:flex;flex-direction:column;gap:8px}
+  .quick-btn{text-align:left;background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:12px 14px;color:var(--text2);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .3s;line-height:1.5}
+  .quick-btn:hover{border-color:var(--accent);color:var(--text);background:rgba(77,159,255,.08);transform:translateX(4px)}
+  .quick-btn .qb-tag{display:inline-block;background:rgba(77,159,255,.15);color:var(--accent);padding:2px 8px;border-radius:5px;font-size:9px;margin-bottom:5px;font-weight:700}
+  .history-list{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto}
+  .history-list::-webkit-scrollbar{width:5px}
+  .history-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+  .history-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:14px;cursor:pointer;transition:all .2s;font-family:var(--mono);font-size:10px;color:#c0c8e0;line-height:1.5}
+  .history-item:hover{border-color:var(--accent2);color:var(--text);background:rgba(0,229,204,.05)}
+  .history-item .h-num{color:var(--text3);flex-shrink:0;font-weight:700}
+  .history-item .h-text{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .history-empty{font-family:var(--mono);font-size:10px;color:var(--text3);text-align:center;padding:24px 0}
+  .main-area{display:flex;flex-direction:column;gap:20px}
+  .query-card{background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.6)}
+  .query-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px}
+  .mode-badge{font-family:var(--mono);font-size:10px;font-weight:700;padding:6px 14px;border-radius:50px;letter-spacing:.6px;border:1px solid}
+  .mode-badge.rapido{background:rgba(255,107,53,.1);color:var(--accent3);border-color:rgba(255,107,53,.25)}
+  .mode-badge.completo{background:rgba(0,229,204,.1);color:var(--accent2);border-color:rgba(0,229,204,.25)}
+  textarea#query{min-height:140px;resize:vertical;line-height:1.8;font-size:13px;background:var(--surface2)}
+  .query-actions{display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:14px;border:none;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.6px;cursor:pointer;transition:all .3s;text-transform:uppercase;white-space:nowrap}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 6px 20px rgba(77,159,255,.3)}
+  .btn-primary:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 28px rgba(77,159,255,.4)}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+  .btn-ghost{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+  .btn-ghost:hover{border-color:var(--accent2);color:var(--text);background:rgba(0,229,204,.05)}
+  .btn-danger-ghost{background:transparent;color:var(--danger);border:1px solid rgba(255,69,96,.2)}
+  .btn-danger-ghost:hover{background:rgba(255,69,96,.08)}
+  .btn-small{padding:7px 12px;font-size:10px;gap:5px}
+  .loading-bar{display:none;height:3px;background:var(--surface3);border-radius:2px;margin-top:14px;overflow:hidden}
+  .loading-bar.active{display:block}
+  .loading-bar::after{content:'';display:block;height:100%;width:40%;background:linear-gradient(90deg,var(--accent),var(--accent2));animation:loadingSlide 1.4s ease-in-out infinite}
+  @keyframes loadingSlide{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}
+  .loading-msg{display:none;font-family:var(--mono);font-size:12px;color:var(--text3);margin-top:10px;animation:pulse 1.6s ease-in-out infinite}
+  .loading-msg.active{display:block}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+  .response-card{background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.6);display:none}
+  .response-card.visible{display:block;animation:slideUp .4s cubic-bezier(.4,0,.2,1)}
+  @keyframes slideUp{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+  .response-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+  .response-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .resp-tag{font-family:var(--mono);font-size:9px;font-weight:700;padding:5px 12px;border-radius:50px;letter-spacing:.8px;text-transform:uppercase;border:1px solid}
+  .resp-tag.ai{background:rgba(77,159,255,.1);color:var(--accent);border-color:rgba(77,159,255,.25)}
+  .resp-tag.tokens{background:rgba(0,229,204,.1);color:var(--accent2);border-color:rgba(0,229,204,.25)}
+  .response-actions{display:flex;gap:10px;flex-wrap:wrap}
+  .markdown-body{font-family:var(--sans);font-size:15px;line-height:1.8;color:var(--text)}
+  .markdown-body h1,.markdown-body h2,.markdown-body h3{font-family:var(--sans);font-weight:700;margin:1.8em 0 .8em;line-height:1.3}
+  .markdown-body h1{font-size:1.7em;color:var(--text);border-bottom:2px solid var(--border);padding-bottom:12px}
+  .markdown-body h2{font-size:1.35em;color:var(--accent)}
+  .markdown-body h3{font-size:1.1em;color:var(--accent2)}.markdown-body h4,.markdown-body h5,.markdown-body h6{color:#e0e8ff;font-weight:700;margin:1.2em 0 .6em}
+  .markdown-body p{margin-bottom:1.2em;color:#e8ecf5}
+  .markdown-body strong{color:var(--text);font-weight:700}
+  .markdown-body code{font-family:var(--mono);font-size:12px;background:var(--surface3);border:1px solid var(--border);padding:3px 8px;border-radius:5px;color:var(--accent2)}
+  .markdown-body pre{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:18px;overflow-x:auto;margin:1.2em 0}
+  .markdown-body pre code{background:none;border:none;padding:0;color:var(--text);font-size:12px}
+  .markdown-body ul,.markdown-body ol{margin:1em 0 1em 1.8em}
+  .markdown-body li{margin-bottom:.5em;color:#e8ecf5}
+  .markdown-body blockquote{border-left:4px solid var(--accent);margin:1.2em 0;padding:12px 18px;background:rgba(77,159,255,.05);border-radius:0 14px 14px 0;color:#e8ecf5}
+  .markdown-body table{width:100%;border-collapse:collapse;margin:1.2em 0;font-family:var(--mono);font-size:12px}
+  .markdown-body th{background:var(--surface3);color:var(--accent);padding:12px 16px;text-align:left;font-weight:700;border-bottom:2px solid var(--border)}
+  .markdown-body td{padding:11px 16px;border-bottom:1px solid var(--border);color:#f0f4ff}
+  .markdown-body tr:hover td{background:rgba(255,255,255,.02)}
+  .svg-container{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:20px;margin:1.2em 0;overflow:auto}
+  .svg-label{font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:12px;font-weight:600;text-transform:uppercase}
+  .svg-controls{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .svg-btn{font-family:var(--mono);font-size:10px;padding:7px 13px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text2);cursor:pointer;transition:all .2s;white-space:nowrap}
+  .svg-btn:hover{border-color:var(--accent2);color:var(--text);background:rgba(0,229,204,.05)}
+  .svg-wrapper{overflow-x:auto}
+  .svg-wrapper svg{max-width:100%;height:auto;display:block;margin:0 auto}
+  .error-box{display:none;background:rgba(255,69,96,.08);border:1px solid rgba(255,69,96,.25);border-radius:14px;padding:16px 18px;font-family:var(--mono);font-size:12px;color:var(--danger);line-height:1.6;white-space:pre-wrap;word-break:break-word}
+  .error-box.visible{display:block}
+  .toast{position:fixed;bottom:28px;right:28px;background:var(--surface2);border:1px solid var(--accent2);border-radius:14px;padding:13px 22px;font-family:var(--mono);font-size:11px;color:var(--accent2);box-shadow:0 8px 32px rgba(0,0,0,.6);z-index:9999;transform:translateY(90px);opacity:0;transition:all .4s cubic-bezier(.34,1.56,.64,1)}
+  .toast.show{transform:translateY(0);opacity:1}
+  ::-webkit-scrollbar{width:7px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+  .divider{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:18px 0}
+  .spinner-inline{display:inline-block;width:13px;height:13px;border:2.5px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media(max-width:1024px){.app{grid-template-columns:1fr}.sidebar{order:2}.main-area{order:1}}
+  @media(max-width:600px){.header-inner{height:auto;padding:8px 0;gap:12px}.mode-toggle-wrapper{order:3;width:100%;justify-content:center}.logo-text{font-size:16px}.app{padding:16px 12px;gap:16px}.card{padding:16px}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">🔧</div>
+      <div class="logo-text">Auto<span>Técnico</span> PRO</div>
+    </div>
+    <div class="mode-toggle-wrapper">
+      <span class="mode-label">MODO:</span>
+      <button class="mode-btn active" id="btnRapido" onclick="AppState.setMode('rapido')">⚡ Rápido</button>
+      <button class="mode-btn" id="btnCompleto" onclick="AppState.setMode('completo')">📐 Completo</button>
+    </div>
+    <div class="header-status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Sin conectar</span>
+    </div>
+  </div>
+</header>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="card">
+      <div class="card-title">Configuración API</div>
+      <div class="field">
+        <label>API Key</label>
+        <input type="password" id="apiKey" placeholder="sk-ant-api03-...">
+        <div class="field-hint">SessionStorage — se borra al cerrar tab.</div>
+      </div>
+      <div class="field">
+        <label>Modelo</label>
+        <select id="modelSelect">
+          <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
+          <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5</option>
+          <option value="claude-opus-4-6">Claude Opus 4.6</option>
+        </select>
+      </div>
+      <div class="field">
+        <div class="tokens-row">
+          <label style="margin:0">Max Tokens</label>
+          <span class="tokens-val" id="tokensVal">6000</span>
+        </div>
+        <input type="range" id="tokensRange" min="1000" max="8000" step="500" value="6000">
+      </div>
+      <div class="divider"></div>
+      <div class="toggle-row">
+        <label for="proxyToggle">Usar Proxy CORS</label>
+        <label class="toggle">
+          <input type="checkbox" id="proxyToggle" onchange="AppState.toggleProxy()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="field" id="proxyUrlField" style="display:none">
+        <label>URL Proxy</label>
+        <input type="text" id="proxyUrl" value="https://corsproxy.io/?">
+      </div>
+      <button class="btn btn-ghost btn-small" style="width:100%" id="testConnBtn" onclick="AppState.testConnection()">
+        🔌 Probar conexión
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Consultas Rápidas</div>
+      <div class="quick-grid" id="quickGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Historial</div>
+      <div class="history-list" id="historyList">
+        <div class="history-empty">Sin consultas.</div>
+      </div>
+      <button class="btn btn-danger-ghost btn-small" style="width:100%;margin-top:12px" onclick="AppState.clearHistory()">
+        🗑 Limpiar
+      </button>
+    </div>
+  </aside>
+
+  <main class="main-area">
+    <div class="query-card">
+      <div class="query-header">
+        <div class="card-title" style="margin-bottom:0">Nueva Consulta</div>
+        <span class="mode-badge rapido" id="modeBadge">⚡ Diagnóstico Rápido</span>
+      </div>
+      <textarea id="query" placeholder="DPF Euro 6: genera SVG con ECU, sensores ΔP y temperatura, valores típicos..."></textarea>
+      <div class="loading-bar" id="loadingBar"></div>
+      <div class="loading-msg" id="loadingMsg">Procesando ingeniería automotriz... ⚙️</div>
+      <div class="query-actions">
+        <button class="btn btn-primary" id="sendBtn" onclick="AppState.sendQuery()">
+          <span id="sendIcon">▶</span>
+          <span id="sendTxt">Consultar</span>
+        </button>
+        <button class="btn btn-ghost" onclick="AppState.clearQuery()">✕ Limpiar</button>
+      </div>
+      <div class="error-box" id="errorBox"></div>
+    </div>
+
+    <div class="response-card" id="responseCard">
+      <div class="response-header">
+        <div class="response-meta">
+          <span class="resp-tag ai">🤖 Claude</span>
+          <span class="resp-tag tokens" id="tokenCount"></span>
+          <span class="resp-tag" id="modeUsedTag"></span>
+        </div>
+        <div class="response-actions">
+          <button class="btn btn-ghost btn-small" onclick="AppState.copyResponse()">📋 Copiar</button>
+          <button class="btn btn-ghost btn-small" onclick="AppState.exportPDF()">📄 PDF</button>
+        </div>
+      </div>
+      <div class="markdown-body" id="responseBody"></div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// AutoTécnico PRO — marked.js EMBEBIDO, sin CDN
+// Fixes: [1] modelos actualizados [2] testConn dinámico [3] proxy OFF default
+// ═══════════════════════════════════════════════════════════════
+
+const AppState = {
+  currentMode: 'rapido',
+  lastRawResponse: '',
+  svgStorage: [],
+
+  systemPrompts: {
+    rapido: `Eres un ingeniero automotriz senior con 20 años de experiencia y diseñador técnico.
+OBLIGATORIAMENTE incluye en CADA respuesta:
+
+1. Resumen breve (2-3 párrafos).
+2. UN DIAGRAMA SVG LIMPIO Y ESPACIOSO (OBLIGATORIO en bloques \`\`\`svg ... \`\`\`):
+
+REGLAS DE DISEÑO SVG — SEGUIR EXACTAMENTE:
+- viewBox="0 0 1000 520" width="1000" height="520"
+- Fondo: <rect fill="#0d1117" width="1000" height="520"/>
+- DISTRIBUCIÓN HORIZONTAL con mínimo 160px entre componentes
+- Máximo 6 componentes por diagrama para no aglomerar
+- Cada componente ocupa mínimo 120x70px con rx="14"
+- TEXTO dentro de componentes: font-size="13" fill="white" font-weight="600" — NUNCA gris
+- VALORES/ETIQUETAS flotantes: font-size="11" fill="#ffcc44" — amarillo brillante
+- Flechas de flujo: strokeWidth="2.5" con markerEnd arrowhead definido en <defs>
+- Cables señal: stroke="#7dd3fc" stroke-width="1.5" stroke-dasharray="6,3"
+- Tuberías/gases: stroke="#94a3b8" stroke-width="3"
+- Separación vertical: componentes principales a y=220, sensores a y=80, etiquetas a y=380
+- LEYENDA en x=820 y=30, items separados 22px verticalmente, texto fill="white"
+- Gradientes en defs: ECU=#1e40af→#3b82f6, sensor=#92400e→#f59e0b, actuador=#14532d→#22c55e
+- Sombras: <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge>...</feMerge></filter>
+- NUNCA superponer texto sobre otro texto
+- NUNCA poner más de 2 líneas de texto dentro de un componente
+
+3. Tabla: parámetro | valor normal | rango fallo
+4. Top 3 fallos identificables
+5. Verificación rápida
+RESPONDE EN ESPAÑOL. GENERA SIEMPRE EL SVG.`,
+
+    completo: `Eres ingeniero automotriz senior, docente técnico y diseñador SVG EXPERTO.
+OBLIGATORIAMENTE para CADA respuesta:
+
+1. Principio de funcionamiento detallado.
+2. Arquitectura completa (sensores, actuadores, ECU, buses CAN).
+3. PRIMER DIAGRAMA SVG — VISTA GENERAL DEL SISTEMA (OBLIGATORIO en \`\`\`svg ... \`\`\`):
+
+REGLAS DE DISEÑO SVG — SEGUIR AL PIE DE LA LETRA:
+- viewBox="0 0 1100 600" width="1100" height="600"
+- Fondo oscuro: <rect fill="#0a0e1a" width="1100" height="600"/>
+- ZONAS HORIZONTALES bien separadas (mínimo 160px entre componentes):
+  * Zona izquierda x=40-200: motor/fuente
+  * Zona centro-izq x=260-420: componentes primarios
+  * Zona centro x=480-640: componentes principales
+  * Zona centro-der x=700-860: componentes secundarios
+  * Zona derecha x=920-1060: salida/escape
+- ZONAS VERTICALES:
+  * Sensores: y=50-130 (fila superior, rectángulos 110x60 rx=30)
+  * Componentes principales: y=220-310 (fila media, rectángulos 150x80 rx=16)
+  * Etiquetas valores: y=390-430 (fila inferior)
+- TEXTO SIEMPRE LEGIBLE: fill="white" font-weight="600" font-size="13" — NUNCA gris
+- Valores y unidades: fill="#fbbf24" font-size="11" font-weight="700"
+- DTCs: fill="#f87171" font-size="10"
+- Flechas flujo: stroke="#94a3b8" stroke-width="3" con markerEnd arrowhead en defs
+- Señales eléctricas: stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="7,3"
+- Bus CAN: stroke="#a78bfa" stroke-width="2" stroke-dasharray="4,2"
+- Gradientes en defs: ECU=#1e40af->#3b82f6, sensor=#92400e->#f59e0b, actuador=#14532d->#22c55e
+- Glow: <filter id="glow"><feGaussianBlur stdDeviation="3"/></filter>
+- LEYENDA: rect x=880 y=20 fondo #1e293b, texto fill="white", items 22px separados
+- NUNCA superponer texto ni componentes — verificar coordenadas
+
+4. SEGUNDO DIAGRAMA SVG — señal osciloscopio o detalle componente crítico (en \`\`\`svg ... \`\`\`).
+5. Tabla EXHAUSTIVA: sensor | voltaje | resistencia | temperatura | presión | DTC
+6. Procedimiento verificación paso a paso
+7. Árbol de fallos comunes
+8. Interpretación datos en vivo
+9. Contexto Euro (legislación, evolución)
+RESPONDE EN ESPAÑOL. GENERA SIEMPRE AMBOS SVG.`
+  },
+
+  quickPrompts: [
+    {tag:'DPF',text:'Sistema DPF Euro 6: genera diagrama SVG con ECU, sensores ΔP y temperatura, filtro DPF, DOC, inyector postquemador. Valores: 0-200 mbar, 300-700°C. Regeneración activa/pasiva. Tabla parámetros. Leyenda completa.'},
+    {tag:'MHEV 48V',text:'Microhíbrido 48V: SVG con batería 48V, DC-DC, BSG (alternador reversible), supercondensador, líneas CAN. Voltajes, corrientes. Estrategias recuperación energía. Leyenda.'},
+    {tag:'EGR',text:'EGR alta/baja presión diésel: Dos SVG separados. Válvulas, refrigerador EGR, sensores T/P. Valores: 0-2 bar, 50-150°C. Comparar funcionamiento. Leyenda.'},
+    {tag:'Common Rail',text:'Sensor presión riel Common Rail: SVG con bomba CP4, riel, inyectores, amortiguador. Rango: 0-2000 bar. Señal 0-5V. DTC P0190-P0195. Osciloscopio simulado.'},
+    {tag:'CAN Bus',text:'Red CAN Bus diagnóstico VAG: SVG nodos ECU (motor, ABS, climático), líneas CAN H/L con terminadores 120Ω. Matriz mensajes. Fallo U0001. Leyenda con colores.'},
+    {tag:'Refrigeración',text:'Sistema refrigeración moderno: SVG bomba eléctrica, termostato mapa, ECT, circuitos principal/auxiliar, radiador. Temperaturas, flujos, control ECU. Leyenda.'},
+    {tag:'Prius HV',text:'Inversor Toyota Prius: SVG batería HV, inversor IGBT, MG1/MG2, e-CVT. Tensiones, PWM, modo EV/carga. Fallos P3000-P3099. Leyenda.'},
+    {tag:'AdBlue SCR',text:'Sistema SCR + AdBlue: SVG depósito, dosificador, inyector, catalizador SCR, sensor NOx. Temperaturas, presiones, DPF integrado. Leyenda.'},
+    {tag:'MAF',text:'Sensor MAF flujo aire: SVG elemento sensible (hilo caliente), amplificador, conectores. Señal 0-5V. Valores normales vs sucios. P0101. Osciloscopio.'},
+    {tag:'Inyector Diésel',text:'Inyector electromagnético diésel: SVG sección transversal con bobina, resorte, aguja, orificio. Tiempos 1-3ms, voltajes, pulsos. P0201-P0208. Osciloscopio PWM.'},
+  ],
+
+  init: function() {
+    try {
+      console.log('[INIT] AutoTécnico PRO — marked inline, proxy OFF default');
+
+      // Verificar marked disponible
+      if (typeof marked === 'undefined' || typeof marked.parse !== 'function') {
+        console.error('[INIT] marked NO disponible');
+        this.showError('Error: marked.js no cargó. Recarga la página.');
+      } else {
+        console.log('[INIT] marked OK:', typeof marked.parse);
+      }
+
+      const savedKey = sessionStorage.getItem('apiKey');
+      if (savedKey) { document.getElementById('apiKey').value = savedKey; this.updateStatus(true); }
+
+      // Proxy OFF por defecto
+      const savedProxy = localStorage.getItem('useProxy');
+      if (savedProxy === 'true') {
+        document.getElementById('proxyToggle').checked = true;
+        document.getElementById('proxyUrlField').style.display = 'block';
+      } else {
+        document.getElementById('proxyToggle').checked = false;
+        document.getElementById('proxyUrlField').style.display = 'none';
+        localStorage.setItem('useProxy', 'false');
+      }
+
+      const savedProxyUrl = localStorage.getItem('proxyUrl');
+      if (savedProxyUrl) document.getElementById('proxyUrl').value = savedProxyUrl;
+
+      // Restaurar modelo — descarta obsoletos
+      const savedModel = localStorage.getItem('model');
+      if (savedModel) {
+        const sel = document.getElementById('modelSelect');
+        const validModels = [...sel.options].map(o => o.value);
+        if (validModels.includes(savedModel)) sel.value = savedModel;
+        else { localStorage.removeItem('model'); console.log('[INIT] Modelo obsoleto descartado:', savedModel); }
+      }
+
+      const savedTokens = localStorage.getItem('tokens');
+      if (savedTokens) {
+        document.getElementById('tokensRange').value = savedTokens;
+        document.getElementById('tokensVal').textContent = savedTokens;
+      }
+
+      document.getElementById('apiKey').addEventListener('input', e => {
+        sessionStorage.setItem('apiKey', e.target.value);
+        this.updateStatus(e.target.value.length > 10);
+      });
+      document.getElementById('modelSelect').addEventListener('change', e => localStorage.setItem('model', e.target.value));
+      document.getElementById('tokensRange').addEventListener('input', e => {
+        document.getElementById('tokensVal').textContent = e.target.value;
+        localStorage.setItem('tokens', e.target.value);
+      });
+      document.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') this.sendQuery();
+      });
+
+      this.renderQuickBtns();
+      this.renderHistory();
+      console.log('[INIT] ✓ Listo');
+    } catch (err) {
+      console.error('[INIT]', err);
+      this.showError('Error inicializando: ' + err.message);
+    }
+  },
+
+  setMode: function(mode) {
+    try {
+      this.currentMode = mode;
+      document.getElementById('btnRapido').classList.toggle('active', mode === 'rapido');
+      document.getElementById('btnCompleto').classList.toggle('active', mode === 'completo');
+      const badge = document.getElementById('modeBadge');
+      if (mode === 'rapido') { badge.textContent = '⚡ Diagnóstico Rápido'; badge.className = 'mode-badge rapido'; }
+      else { badge.textContent = '📐 Didáctico Completo'; badge.className = 'mode-badge completo'; }
+    } catch(e) { console.error(e); }
+  },
+
+  toggleProxy: function() {
+    try {
+      const checked = document.getElementById('proxyToggle').checked;
+      document.getElementById('proxyUrlField').style.display = checked ? 'block' : 'none';
+      localStorage.setItem('useProxy', checked ? 'true' : 'false');
+      if (checked) localStorage.setItem('proxyUrl', document.getElementById('proxyUrl').value);
+    } catch(e) { console.error(e); }
+  },
+
+  updateStatus: function(ok) {
+    try {
+      const dot = document.getElementById('statusDot');
+      const txt = document.getElementById('statusText');
+      if (ok) { dot.classList.add('connected'); txt.textContent = 'API Key configurada'; }
+      else { dot.classList.remove('connected'); txt.textContent = 'Sin conectar'; }
+    } catch(e) { console.error(e); }
+  },
+
+  testConnection: async function() {
+    try {
+      const apiKey = document.getElementById('apiKey').value.trim();
+      if (!apiKey) { this.showError('Introduce una API Key primero.'); return; }
+      const testBtn = document.getElementById('testConnBtn');
+      const orig = testBtn.textContent;
+      testBtn.disabled = true; testBtn.textContent = '🔄 Probando...';
+      const useProxy = document.getElementById('proxyToggle').checked;
+      const proxyUrl = document.getElementById('proxyUrl').value.trim();
+      const apiUrl = 'https://api.anthropic.com/v1/messages';
+      const targetUrl = useProxy ? (proxyUrl + encodeURIComponent(apiUrl)) : apiUrl;
+      const isCF = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      const testUrl = isCF ? '/api' : (useProxy ? proxyUrl + encodeURIComponent('https://api.anthropic.com/v1/messages') : 'https://api.anthropic.com/v1/messages');
+      const testHdrs = (isCF || useProxy)
+        ? {'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'}
+        : {'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'};
+      const response = await fetch(testUrl, {
+        method: 'POST',
+        headers: testHdrs,
+        body: JSON.stringify({model: document.getElementById('modelSelect').value, max_tokens:50, messages:[{role:'user',content:'OK'}]})
+      });
+      const data = await response.json();
+      if (response.ok) { this.showToast('✓ Conexión exitosa'); this.updateStatus(true); }
+      else { this.showError('Error API: '+(data?.error?.message||response.statusText)); this.updateStatus(false); }
+      testBtn.disabled = false; testBtn.textContent = orig;
+    } catch(err) {
+      console.error('[testConnection]', err);
+      document.getElementById('testConnBtn').disabled = false;
+      document.getElementById('testConnBtn').textContent = '🔌 Probar conexión';
+      this.showError('Error: '+err.message+'\nUsa: python -m http.server 8080');
+      this.updateStatus(false);
+    }
+  },
+
+  renderQuickBtns: function() {
+    try {
+      const grid = document.getElementById('quickGrid');
+      if (!grid) return;
+      grid.innerHTML = this.quickPrompts.map((p,i) => `
+        <button class="quick-btn" onclick="AppState.fillQuery(${i})">
+          <div class="qb-tag">${this.esc(p.tag)}</div>
+          <div>${this.esc(p.text.slice(0,60))}...</div>
+        </button>`).join('');
+    } catch(e) { console.error(e); }
+  },
+
+  fillQuery: function(idx) {
+    if (this.quickPrompts[idx]) { document.getElementById('query').value = this.quickPrompts[idx].text; document.getElementById('query').focus(); }
+  },
+
+  getHistory: function() { try { return JSON.parse(localStorage.getItem('queryHistory')||'[]'); } catch { return []; } },
+
+  saveToHistory: function(query, response) {
+    try {
+      let h = this.getHistory(); h.unshift({query, response, ts:Date.now()}); h=h.slice(0,5);
+      localStorage.setItem('queryHistory', JSON.stringify(h)); this.renderHistory();
+    } catch(e) { console.error(e); }
+  },
+
+  renderHistory: function() {
+    try {
+      const list = document.getElementById('historyList');
+      if (!list) return;
+      const h = this.getHistory();
+      if (!h.length) { list.innerHTML = '<div class="history-empty">Sin consultas recientes.</div>'; return; }
+      list.innerHTML = h.map((item,i) => `
+        <div class="history-item" onclick="AppState.loadHistory(${i})">
+          <span class="h-num">${i+1}.</span>
+          <span class="h-text">${this.esc(item.query)}</span>
+        </div>`).join('');
+    } catch(e) { console.error(e); }
+  },
+
+  loadHistory: function(i) {
+    try {
+      const h = this.getHistory();
+      if (!h[i]) return;
+      document.getElementById('query').value = h[i].query;
+      this.lastRawResponse = h[i].response;
+      this.renderResponse(h[i].response, 0, '(historial)');
+    } catch(e) { console.error(e); this.showError('Error historial: '+e.message); }
+  },
+
+  clearHistory: function() {
+    try { localStorage.removeItem('queryHistory'); this.renderHistory(); this.showToast('✓ Historial eliminado'); }
+    catch(e) { console.error(e); }
+  },
+
+  sendQuery: async function() {
+    try {
+      const apiKey = document.getElementById('apiKey').value.trim();
+      const query = document.getElementById('query').value.trim();
+      const model = document.getElementById('modelSelect').value;
+      const maxTokens = parseInt(document.getElementById('tokensRange').value) || 4000;
+      const useProxy = document.getElementById('proxyToggle').checked;
+      const proxyUrl = document.getElementById('proxyUrl').value.trim();
+
+      if (!apiKey) { this.showError('⚠️ Introduce tu API Key primero.'); return; }
+      if (!query) { this.showError('⚠️ Escribe una consulta.'); return; }
+
+      console.log('[sendQuery]', {mode:this.currentMode, model, tokens:maxTokens, proxy:useProxy});
+      this.hideError(); this.setLoading(true);
+      document.getElementById('responseCard').classList.remove('visible');
+
+      // Auto-detectar entorno: Cloudflare Pages usa /api, localhost directo
+      const isCloudflare = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      const apiUrl = 'https://api.anthropic.com/v1/messages';
+      const proxyApiUrl = '/api';
+      let targetUrl, fetchHeaders;
+
+      if (isCloudflare) {
+        // Cloudflare Pages: usar proxy serverless /api (sin CORS issues)
+        targetUrl = proxyApiUrl;
+        fetchHeaders = {'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'};
+        console.log('[sendQuery] Modo Cloudflare → /api proxy');
+      } else if (useProxy) {
+        // localhost con proxy manual activado
+        targetUrl = proxyUrl + encodeURIComponent(apiUrl);
+        fetchHeaders = {'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'};
+        console.log('[sendQuery] Modo proxy manual:', targetUrl);
+      } else {
+        // localhost directo
+        targetUrl = apiUrl;
+        fetchHeaders = {'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'};
+        console.log('[sendQuery] Modo localhost directo');
+      }
+
+      const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: fetchHeaders,
+        body: JSON.stringify({model, max_tokens:maxTokens, system:this.systemPrompts[this.currentMode], messages:[{role:'user',content:query}]})
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error?.message || `HTTP ${response.status}`);
+
+      this.updateStatus(true);
+      const text = data.content?.map(b => b?.text||'').join('') || '';
+      const tokensUsed = data.usage?.output_tokens || 0;
+      this.lastRawResponse = text;
+      console.log('[sendQuery] ✓ tokens:', tokensUsed, 'chars:', text.length);
+      this.saveToHistory(query, text);
+      this.renderResponse(text, tokensUsed, this.currentMode);
+    } catch(err) {
+      console.error('[sendQuery]', err);
+      let msg = err.message || 'Error desconocido';
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) msg = `Error de red/CORS.\nUsa: python -m http.server 8080\nProxy desactivado.\n\n${msg}`;
+      else if (msg.includes('invalid') || msg.includes('auth')) msg = `API Key inválida o sin créditos.\nVerifica en console.anthropic.com\n\n${msg}`;
+      this.showError('❌ '+msg);
+      this.updateStatus(false);
+    } finally {
+      this.setLoading(false);
+    }
+  },
+
+  extractAndReplaceSvgs: function(text) {
+    try {
+      if (!text || typeof text !== 'string') return text;
+      this.svgStorage = [];
+      let result = text;
+
+      const dbgIdx = text.search(/```[sS][vV][gG]/);
+      console.log('[extractSvgs] ```svg en pos:', dbgIdx, '| total chars:', text.length);
+
+      // Regex 1: bloque ```svg COMPLETO (con cierre ```)
+      result = result.replace(/```[sS][vV][gG][^\n]*\n([\s\S]*?)\n?```/g, (match, svgCode) => {
+        const idx = this.svgStorage.length;
+        this.svgStorage.push(svgCode.trim());
+        console.log(`[extractSvgs] SVG #${idx} COMPLETO, chars:`, svgCode.trim().length);
+        return `\n[[SVG_${idx}]]\n`;
+      });
+
+      // Regex 2: bloque ```svg SIN cierre (truncado por límite tokens)
+      result = result.replace(/```[sS][vV][gG][^\n]*\n([\s\S]+)$/g, (match, svgCode) => {
+        if (!svgCode.includes('<svg') && !svgCode.includes('<SVG')) return match;
+        let code = svgCode.trim();
+        if (!code.includes('</svg>')) { code += '\n</svg>'; console.log('[extractSvgs] SVG truncado — cerrado manualmente'); }
+        const idx = this.svgStorage.length;
+        this.svgStorage.push(code);
+        console.log(`[extractSvgs] SVG #${idx} TRUNCADO recuperado, chars:`, code.length);
+        return `\n[[SVG_${idx}]]\n`;
+      });
+
+      // Regex 3: ```html con <svg completo
+      result = result.replace(/```[hH][tT][mM][lL][^\n]*\n([\s\S]*?)\n?```/g, (match, htmlCode) => {
+        if (htmlCode.includes('<svg') || htmlCode.includes('<SVG')) {
+          const idx = this.svgStorage.length;
+          this.svgStorage.push(htmlCode.trim());
+          console.log(`[extractSvgs] SVG #${idx} via html, chars:`, htmlCode.trim().length);
+          return `\n[[SVG_${idx}]]\n`;
+        }
+        return match;
+      });
+
+      // Regex 4: <svg>...</svg> inline directo
+      result = result.replace(/(<svg[\s\S]*?<\/svg>)/gi, (match) => {
+        const idx = this.svgStorage.length;
+        this.svgStorage.push(match.trim());
+        console.log(`[extractSvgs] SVG #${idx} inline, chars:`, match.trim().length);
+        return `\n[[SVG_${idx}]]\n`;
+      });
+
+      console.log(`[extractSvgs] TOTAL: ${this.svgStorage.length} SVGs extraídos`);
+      return result;
+    } catch(e) { console.error('[extractSvgs] ERROR:', e); return text; }
+  },
+
+  reinsertSvgs: function(html) {
+    try {
+      let result = html;
+      for (let i = 0; i < this.svgStorage.length; i++) {
+        const placeholder = `[[SVG_${i}]]`;
+        const wrapped = `<div class="svg-container">
+  <div class="svg-label">📊 Diagrama SVG #${i+1}</div>
+  <div class="svg-controls" data-svg-index="${i}">
+    <button class="svg-btn" onclick="AppState.downloadSVG(${i})">💾 Descargar</button>
+    <button class="svg-btn" onclick="AppState.zoomSVG(${i},1.3)">🔍 +Zoom</button>
+    <button class="svg-btn" onclick="AppState.zoomSVG(${i},0.75)">🔍 -Zoom</button>
+  </div>
+  <div class="svg-wrapper" data-svg-index="${i}">${this.svgStorage[i]}</div>
+</div>`;
+        result = result.split(placeholder).join(wrapped);
+      }
+      return result;
+    } catch(e) { console.error(e); return html; }
+  },
+
+  renderResponse: function(text, tokens, mode) {
+    try {
+      const card = document.getElementById('responseCard');
+      const body = document.getElementById('responseBody');
+      if (!card || !body) return;
+
+      // Verificar marked disponible
+      if (typeof marked === 'undefined' || typeof marked.parse !== 'function') {
+        body.innerHTML = '<pre style="color:var(--text);white-space:pre-wrap;word-break:break-word">'+this.esc(text)+'</pre>';
+        card.classList.add('visible');
+        return;
+      }
+
+      const textWithPlaceholders = this.extractAndReplaceSvgs(text);
+      let html = '';
+      try { html = marked.parse(textWithPlaceholders) || ''; }
+      catch(e) { console.error('[marked]', e); html = '<pre>'+this.esc(text)+'</pre>'; }
+
+      body.innerHTML = this.reinsertSvgs(html);
+
+      if (tokens > 0) document.getElementById('tokenCount').textContent = `${tokens.toLocaleString()} tokens`;
+      const modeTag = document.getElementById('modeUsedTag');
+      if (mode==='completo'){modeTag.textContent='📐 Modo Completo';modeTag.style.cssText='background:rgba(0,229,204,.1);color:var(--accent2);border-color:rgba(0,229,204,.25)';}
+      else if(mode==='rapido'){modeTag.textContent='⚡ Modo Rápido';modeTag.style.cssText='background:rgba(255,107,53,.1);color:var(--accent3);border-color:rgba(255,107,53,.25)';}
+      else{modeTag.textContent=mode;}
+
+      card.classList.add('visible');
+      setTimeout(() => card.scrollIntoView({behavior:'smooth',block:'start'}), 50);
+    } catch(e) {
+      console.error('[renderResponse]', e);
+      this.showError('Error renderizando: '+e.message);
+    }
+  },
+
+  downloadSVG: function(idx) {
+    try {
+      if (!this.svgStorage[idx]) { this.showError(`SVG #${idx} no encontrado`); return; }
+      const blob = new Blob([this.svgStorage[idx]], {type:'image/svg+xml'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href=url; a.download=`diagrama-${idx}-${Date.now()}.svg`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      this.showToast('✓ SVG descargado');
+    } catch(e) { console.error(e); this.showError('Error: '+e.message); }
+  },
+
+  zoomSVG: function(idx, factor) {
+    try {
+      const svg = document.querySelector(`[data-svg-index="${idx}"] svg`);
+      if (!svg) return;
+      const cur = parseFloat(svg.dataset.scale||1);
+      const ns = Math.max(0.5, Math.min(3, cur*factor));
+      svg.dataset.scale=ns; svg.style.transform=`scale(${ns})`; svg.style.transformOrigin='top center';
+    } catch(e) { console.error(e); }
+  },
+
+  copyResponse: function() {
+    try {
+      if (!this.lastRawResponse) { this.showError('No hay respuesta'); return; }
+      navigator.clipboard.writeText(this.lastRawResponse).then(()=>this.showToast('✓ Copiado')).catch(()=>this.showError('Error copiando'));
+    } catch(e) { console.error(e); }
+  },
+
+  exportPDF: async function() {
+    try {
+      if (!this.lastRawResponse) { this.showError('No hay respuesta para exportar'); return; }
+      this.showToast('Generando PDF...');
+      const {jsPDF} = window.jspdf;
+      const el = document.getElementById('responseBody');
+      const canvas = await html2canvas(el, {backgroundColor:'#0a0d12',scale:1.5,useCORS:true,allowTaint:true});
+      const pdf = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+      const pageW=pdf.internal.pageSize.getWidth(), pageH=pdf.internal.pageSize.getHeight();
+      const imgW=pageW-20, imgH=(canvas.height*imgW)/canvas.width;
+      let y=10;
+      pdf.setFillColor(10,13,18); pdf.rect(0,0,pageW,pageH,'F');
+      pdf.setTextColor(77,159,255); pdf.setFont('courier','bold'); pdf.setFontSize(14);
+      pdf.text('AutoTécnico Pro — Diagnóstico',10,y);
+      pdf.setFontSize(9); pdf.setTextColor(145,153,183);
+      pdf.text(new Date().toLocaleString('es-ES'),10,y+6); y+=14;
+      let remainH=imgH;
+      while(remainH>0){
+        const srcY=(imgH-remainH)/imgH*canvas.height;
+        const sliceH=Math.min(remainH,pageH-y-10);
+        const sliceCanvasH=(sliceH/imgH)*canvas.height;
+        const sc=document.createElement('canvas'); sc.width=canvas.width; sc.height=sliceCanvasH;
+        sc.getContext('2d').drawImage(canvas,0,srcY,canvas.width,sliceCanvasH,0,0,canvas.width,sliceCanvasH);
+        pdf.addImage(sc.toDataURL('image/png'),'PNG',10,y,imgW,sliceH);
+        remainH-=sliceH;
+        if(remainH>0){pdf.addPage();pdf.setFillColor(10,13,18);pdf.rect(0,0,pageW,pageH,'F');y=10;}
+      }
+      pdf.save(`autotecnico_${Date.now()}.pdf`);
+      this.showToast('✓ PDF exportado');
+    } catch(e) { console.error(e); this.showToast('❌ Error PDF: '+e.message); }
+  },
+
+  clearQuery: function() { try{document.getElementById('query').value='';this.hideError();}catch(e){} },
+
+  setLoading: function(on) {
+    try {
+      document.getElementById('loadingBar').classList.toggle('active',on);
+      document.getElementById('loadingMsg').classList.toggle('active',on);
+      const btn=document.getElementById('sendBtn'); btn.disabled=on;
+      document.getElementById('sendIcon').innerHTML=on?'<span class="spinner-inline"></span>':'▶';
+      document.getElementById('sendTxt').textContent=on?'Procesando...':'Consultar';
+    } catch(e) { console.error(e); }
+  },
+
+  showError: function(msg) { try{const b=document.getElementById('errorBox');if(b){b.textContent=msg||'Error';b.classList.add('visible');}}catch(e){} },
+  hideError: function() { try{const b=document.getElementById('errorBox');if(b)b.classList.remove('visible');}catch(e){} },
+  showToast: function(msg) { try{const t=document.getElementById('toast');if(t){t.textContent=msg||'Ok';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}}catch(e){} },
+  esc: function(s) { try{if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}catch{return'';} }
+};
+
+if (document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>AppState.init());
+else AppState.init();
+</script>
+</body>
+</html>
