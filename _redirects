@@ -1,3 +1,0 @@
-git add _redirects
-git commit -m "Add redirects for Cloudflare Pages"
-git push origin main
